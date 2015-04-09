@@ -7,14 +7,23 @@
 
 (cl:eval-when (:compile-toplevel :load-toplevel :execute)
   (let* (
-         (loaded-file (truename (or 
+         (cc-compiler #+linux "gcc"
+                      #+darwin "clang")
+         (cc-cflags `("-fPIC"
+                      "--shared"
+                      #+nil "-g"
+                      #+darwin "-I/usr/local/include/osxfuse"
+                      #+darwin "-losxfuse"
+                      #+linux "-lfuse"))
+
+         (loaded-file (truename (or
                                  *compile-file-pathname*
                                  *load-pathname*
                                  )))
          (target-dir (pathname-directory loaded-file))
          (lib (make-pathname :directory target-dir
                              :name "libfuse-launcher"
-                             :type "so"
+                             :type #+darwin "dylib" #+linux "so"
                              ))
          (source (make-pathname :directory target-dir
                                 :name "fuse-launcher"
@@ -38,47 +47,42 @@
                      (<= (file-write-date source)
                          (file-write-date lib)))
                 #+ccl (ccl:run-program
-                       "gcc"
+                       cc-compiler
                        `(
                          "-x"
                          "c"
                          ,(namestring source)
-                         "-fPIC"
-                         "--shared"
-                         "-lfuse"
-                         "-o" 
+                         ,@cc-cflags
+                         "-o"
                          ,(namestring lib)
                          )
-                       :search t
-                       :output t
+;                       :search t
+;                       :output t
                        )
                 #+sbcl (sb-ext:run-program
-                        "gcc"
+                        cc-compiler
                         `(
                           "-x"
                           "c"
                           ,(namestring source)
-                         "-fPIC"
-                          "--shared"
-                          "-lfuse"
-                          "-o" 
+                          ,@cc-cflags
+                          "-o"
                           ,(namestring lib)
                           )
                         :search t
                         :output t
                         )
                 #+ecl (ext:system
-                       (format 
+                       (format
                         nil
                         "~a~{ '~a'~}"
-                        "gcc"
+                        cc-compiler
                         `(
                           "-x"
                           "c"
                           ,(namestring source)
-                          "--shared"
-                          "-lfuse"
-                          "-o" 
+                          ,@cc-cflags
+                          "-o"
                           ,(namestring lib)
                           )
                         :search t
@@ -87,10 +91,10 @@
                 )
 
         (defpackage :cl-fuse (:use :common-lisp :cffi))
-        (unless (and (probe-file grovel-real-target) 
+        (unless (and (probe-file grovel-real-target)
                      (<= (file-write-date grovel-source)
                          (file-write-date grovel-real-target)))
-                (cffi-grovel:process-grovel-file 
+                (cffi-grovel:process-grovel-file
                  grovel-source
                  grovel-target))
         ))

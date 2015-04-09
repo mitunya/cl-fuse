@@ -4,4 +4,9 @@
 
 (require 'cl-fuse)
 
-(cl-fuse:fuse-run '("none" "-d" "/tmp/test"))
+(defun is-directory (split-path)
+  t)
+
+(cl-fuse:fuse-run '("none" "-d" "/tmp/test")
+                  :directoryp 'is-directory
+                  )

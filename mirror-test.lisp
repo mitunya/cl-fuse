@@ -23,19 +23,19 @@
      (data (sb-posix:stat path))
      )
     (setf 
-      (foreign-slot-value content 'stat-data :on-dev) 0
-      ;(foreign-slot-value content 'stat-data :inode) 0
-      (foreign-slot-value content 'stat-data :mode) (sb-posix:stat-mode data)
-      (foreign-slot-value content 'stat-data :link-count) (sb-posix:stat-nlink data)
-      (foreign-slot-value content 'stat-data :uid) (sb-posix:stat-uid data)
-      (foreign-slot-value content 'stat-data :gid) (sb-posix:stat-gid data)
-      (foreign-slot-value content 'stat-data :device-id) 0
-      (foreign-slot-value content 'stat-data :size) (sb-posix:stat-size data)
-      (foreign-slot-value content 'stat-data :blocksize) 0
-      (foreign-slot-value content 'stat-data :blockcount) 0
-      (foreign-slot-value content 'stat-data :access-time) (sb-posix:stat-atime data)
-      (foreign-slot-value content 'stat-data :modification-time) (sb-posix:stat-mtime data)
-      (foreign-slot-value content 'stat-data :change-time) (sb-posix:stat-ctime data)
+      (foreign-slot-value content '(:struct stat-data) :on-dev) 0
+      ;(foreign-slot-value content '(:struct stat-data) :inode) 0
+      (foreign-slot-value content '(:struct stat-data) :mode) (sb-posix:stat-mode data)
+      (foreign-slot-value content '(:struct stat-data) :link-count) (sb-posix:stat-nlink data)
+      (foreign-slot-value content '(:struct stat-data) :uid) (sb-posix:stat-uid data)
+      (foreign-slot-value content '(:struct stat-data) :gid) (sb-posix:stat-gid data)
+      (foreign-slot-value content '(:struct stat-data) :device-id) 0
+      (foreign-slot-value content '(:struct stat-data) :size) (sb-posix:stat-size data)
+      (foreign-slot-value content '(:struct stat-data) :blocksize) 0
+      (foreign-slot-value content '(:struct stat-data) :blockcount) 0
+      (foreign-slot-value content '(:struct stat-data) :access-time) (sb-posix:stat-atime data)
+      (foreign-slot-value content '(:struct stat-data) :modification-time) (sb-posix:stat-mtime data)
+      (foreign-slot-value content '(:struct stat-data) :change-time) (sb-posix:stat-ctime data)
       )
     0
     ))
@@ -44,7 +44,7 @@
   mirror-readdir :int 
   (
    (path :string) (buf :pointer) (filler :pointer)
-   (offset offset) (file-info fuse-file-info)
+   (offset offset) (file-info (:pointer (:struct fuse-file-info)))
    )
   (foreign-funcall-pointer
     filler ()
@@ -64,17 +64,17 @@
 
 (fuse-callback
   mirror-open :int
-  ((path :string) (file-info fuse-file-info))
+  ((path :string) (file-info (:pointer (:struct fuse-file-info))))
   (setf
     (foreign-slot-value file-info 'fuse-file-info :file-handle)
-    (sb-posix:open path (foreign-slot-value file-info 'fuse-file-info :open-flags)))
+    (sb-posix:open path (foreign-slot-value file-info '(:struct fuse-file-info) :open-flags)))
   0)
 
 (fuse-callback
   mirror-read :int
-  ((path :string) (buf :pointer) (size size) (offset offset) (file-info fuse-file-info))
+  ((path :string) (buf :pointer) (size size) (offset offset) (file-info (:pointer (:struct fuse-file-info))))
   (let*
-    ((fd (foreign-slot-value file-info 'fuse-file-info :file-handle)))
+    ((fd (foreign-slot-value file-info '(:struct fuse-file-info) :file-handle)))
     (sb-posix:lseek fd offset 0)
     (sb-posix:read fd buf size)))
 

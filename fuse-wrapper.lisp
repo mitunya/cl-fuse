@@ -3,15 +3,15 @@
 ; Distributed AS IS with NO WARRANTY
 
 ; This file provides wrappers for easy creation of FUSE file systems with
-; cl-fuse. SBCL tests show that once you use fuse_main_real, you have to 
+; cl-fuse. SBCL tests show that once you use fuse_main_real, you have to
 ; quit right after it terminates. As for most situations your program only
-; serves one FS during its lifetime, this is written as to make its 
+; serves one FS during its lifetime, this is written as to make its
 ; one-shot-only use obvious
 
-; I tried to write a honest macro using gensyms and passing functions and 
+; I tried to write a honest macro using gensyms and passing functions and
 ; whatnot. It failed if it was precompiled. Be warned, and patches welcome.
 
-; Probably with "call-callback-yourself" hack you can make this work, but 
+; Probably with "call-callback-yourself" hack you can make this work, but
 ; why bother
 
 (in-package :cl-fuse)
@@ -49,14 +49,14 @@
     ;(fuse-complain "Entering getattr on ~s" split-path)
     (prog1
       (cond
-	((fuse-funcall *fuse-wrapper-directoryp* split-path) 
+	((fuse-funcall *fuse-wrapper-directoryp* split-path)
 	 (progn (generic-directory content) 0))
-	((fuse-funcall *fuse-wrapper-symlinkp* split-path) 
+	((fuse-funcall *fuse-wrapper-symlinkp* split-path)
 	 (progn (generic-symlink content) 0))
-	((progn 
+	((progn
 	   (setf file-size (fuse-funcall *fuse-wrapper-file-size* split-path))
 	   file-size)
-	 (progn (generic-plain-file content file-size) 
+	 (progn (generic-plain-file content file-size)
 		(when (fuse-funcall *fuse-wrapper-file-writeable-p* split-path)
 		  (writeable-file content))
 		(when (fuse-funcall *fuse-wrapper-file-executable-p* split-path)
@@ -68,62 +68,62 @@
       )
     ))
 
-(fuse-path-callback readlink :int 
+(fuse-path-callback readlink :int
   ((buf :pointer) (bufsize size))
   (let (
         (res (fuse-funcall *fuse-wrapper-symlink-target*
                       (cdr (cl-utilities:split-sequence #\/ path))))
         )
-       (cond 
+       (cond
         ((null res) (- error-ENOENT))
-        ((listp res) (progn 
-            (lisp-string-to-foreign 
-             (namestring (make-pathname 
-                          :directory (cons :absolute 
-                                           (butlast res)) 
+        ((listp res) (progn
+            (lisp-string-to-foreign
+             (namestring (make-pathname
+                          :directory (cons :absolute
+                                           (butlast res))
                           :name (car (last res))))
              buf bufsize)
             0))
-        ((stringp res) (progn 
+        ((stringp res) (progn
                         (lisp-string-to-foreign res buf bufsize)
                         0))
         (t (- error-ENOENT))
         )))
 
-(fuse-path-callback readdir :int ((buf :pointer) 
-  (filler :pointer) (offset offset) 
+(fuse-path-callback readdir :int ((buf :pointer)
+  (filler :pointer) (offset offset)
   (file-info fuse-file-info))
   (if (fuse-funcall *fuse-wrapper-directoryp* split-path)
-      (progn 
-       (foreign-funcall-pointer filler () 
-                                :pointer buf 
-                                :string "."  
-                                :pointer (null-pointer) 
+      (progn
+       (foreign-funcall-pointer filler ()
+                                :pointer buf
+                                :string "."
+                                :pointer (null-pointer)
                                 offset 0)
-       (foreign-funcall-pointer filler () 
-                                :pointer buf 
-                                :string ".."  
-                                :pointer (null-pointer) 
+       (foreign-funcall-pointer filler ()
+                                :pointer buf
+                                :string ".."
+                                :pointer (null-pointer)
                                 offset 0)
        (let ((children (fuse-funcall *fuse-wrapper-directory-content* split-path)))
 	    ;(fuse-complain "Obtained children of ~s:~%~s~%" split-path children)
-            (loop for i in children do 
-		  (if 
+            (loop for i in children do
+		  (if
 		    (or
 		      (stringp i)
 		      (arrayp i)
 		      )
 		    (progn
 		      ;(fuse-complain "Not giving extra info on ~s" i)
-		      (foreign-funcall-pointer filler () 
-					       :pointer buf 
+		      (foreign-funcall-pointer filler ()
+					       :pointer buf
 					       :string i
 					       :pointer (null-pointer)
 					       offset 0)
 		      )
 		    (let*
 		      (
-		       (stat-data (foreign-alloc 'stat-data))
+                       (stat-data (foreign-alloc '(:struct stat-data)))
 		       (attrs (second i))
 		       )
 		      (generic-file stat-data)
@@ -133,7 +133,7 @@
 			((eq attrs :empty-writeable) (writeable-file stat-data))
 			((integerp attrs) (generic-plain-file stat-data attrs))
 			((listp attrs)
-			 (loop 
+			 (loop
 			   for x in attrs do
 			   (cond
 			     ((eq x :writeable) (writeable-file stat-data))
@@ -143,10 +143,10 @@
 			   ))
 			)
 		      ;(fuse-complain "Giving attrs on ~s : ~s" split-path i)
-		      (foreign-funcall-pointer filler () 
-					       :pointer buf 
+		      (foreign-funcall-pointer filler ()
+					       :pointer buf
 					       :string (first i)
-					       :pointer stat-data
+                                               :pointer '(:struct stat-data)
 					       offset 0))
 		    )))
        0)
@@ -154,13 +154,13 @@
 
 (fuse-path-callback file-open :int ((file-info fuse-file-info))
   (let* (
-         (fh (fuse-funcall *fuse-wrapper-file-open* split-path 
-                      (foreign-slot-value file-info 'fuse-file-info :open-flags)))
+         (fh (fuse-funcall *fuse-wrapper-file-open* split-path
+                      (foreign-slot-value file-info '(:struct fuse-file-info) :open-flags)))
          )
-        (if fh 
-            (if (>= fh 0) (progn 
-                           (setf (foreign-slot-value file-info 
-                                                     'fuse-file-info :file-handle) 
+        (if fh
+            (if (>= fh 0) (progn
+                           (setf (foreign-slot-value file-info
+                                                     '(:struct fuse-file-info) :file-handle)
                                  fh)
                            0)
                 fh)
@@ -168,7 +168,7 @@
             )))
 
 (defun process-buffer (data f size offset)
-  (cond 
+  (cond
    ((stringp data)
     (process-buffer (cl-fuse::string-to-octets data :full-range)
                     f size offset))
@@ -178,7 +178,7 @@
     (min (length data) size))
    ((listp data)
     (if (eq (car data) :offset)
-        (process-buffer (subseq (caddr data) 
+        (process-buffer (subseq (caddr data)
                                 (- offset (cadr data)))
                         f size offset)
         (progn
@@ -186,40 +186,40 @@
                do (funcall f i (nth i data)))
          (min (length data) size))))
    (t nil)))
- 
+
 (fuse-path-callback file-read :int ((buf :pointer) (size size)
   (offset offset) (file-info fuse-file-info))
   (let* (
-         (data (fuse-funcall *fuse-wrapper-file-read* split-path size offset 
+         (data (fuse-funcall *fuse-wrapper-file-read* split-path size offset
                         (foreign-slot-value file-info
-                                            'fuse-file-info :file-handle))))
+                                            '(:struct fuse-file-info) :file-handle))))
         (if (not data) (- error-EIO)
-            (or 
-             (process-buffer data 
-                             (lambda (i x) 
-                                     (setf (mem-aref buf :uint8 i) x)) 
+            (or
+             (process-buffer data
+                             (lambda (i x)
+                                     (setf (mem-aref buf :uint8 i) x))
                              size offset)
              (- error-EIO)))))
 
 (fuse-path-callback file-write :int ((buf :pointer) (size size)
   (offset offset) (file-info fuse-file-info))
   (let* (
-         (file-handle (foreign-slot-value file-info 
-                                          'fuse-file-info 
+         (file-handle (foreign-slot-value file-info
+                                          '(:struct fuse-file-info)
                                           :file-handle))
-         (old-data (when (and *fuse-wrapper-file-write-whole* 
+         (old-data (when (and *fuse-wrapper-file-write-whole*
                           (not *fuse-wrapper-file-write*)
                           *fuse-wrapper-file-read*)
-                     (fuse-funcall *fuse-wrapper-file-read* split-path 
+                     (fuse-funcall *fuse-wrapper-file-read* split-path
                                    *fuse-wrapper-max-write-whole-size* 0
                               file-handle)))
          (new-data (when (or *fuse-wrapper-file-write*
                              *fuse-wrapper-file-write-whole*)
                     (make-array (if *fuse-wrapper-file-write*
-                                    size 
+                                    size
                                     (max
                                      (+ offset size)
-                                     (if 
+                                     (if
                                       (and (listp old-data)
                                            (eq (car old-data)
                                                :offset))
@@ -227,24 +227,24 @@
                                          (length (caddr old-data)))
                                       (length old-data)
                                       )))
-                                :element-type 
+                                :element-type
                                 '(unsigned-byte 8))))
          (return-val (cond
          (*fuse-wrapper-file-write*
           (loop for i from 0 to (- size 1) do
                 (setf (aref new-data i) (mem-aref buf :uint8 i)))
-          (fuse-funcall *fuse-wrapper-file-write* 
+          (fuse-funcall *fuse-wrapper-file-write*
                    split-path new-data offset file-handle))
          (*fuse-wrapper-file-write-whole*
-          (process-buffer old-data 
+          (process-buffer old-data
                           (lambda (i x)
                                   (setf (aref new-data i) x)
                                   )
                           *fuse-wrapper-max-write-whole-size* 0)
           (loop for i from 0 to (- size 1) do
-                (setf (aref new-data (+ offset i)) 
+                (setf (aref new-data (+ offset i))
                       (mem-aref buf :uint8 i)))
-          (let ((res 
+          (let ((res
                  (fuse-funcall *fuse-wrapper-file-write-whole*
                           split-path new-data file-handle)))
                (if (find res `(t ,(length new-data)))
@@ -265,7 +265,7 @@
          (result (and *fuse-wrapper-file-create*
                       (fuse-funcall *fuse-wrapper-file-create* split-path mode dev)))
          )
-        (cond 
+        (cond
          ((eq result nil) (- error-EACCES))
          ((eq result t) 0)
          ((integerp result) result)
@@ -276,7 +276,7 @@
   (let* (
          (res (fuse-funcall *fuse-wrapper-chmod* split-path mode))
          )
-        (cond 
+        (cond
          ((eq res nil) (- error-EACCES))
          ((eq res t) 0)
          ((integerp res) res)
@@ -287,7 +287,7 @@
   (let* (
          (res (fuse-funcall *fuse-wrapper-chown* split-path uid gid))
          )
-        (cond 
+        (cond
          ((eq res nil) (- error-EACCES))
          ((eq res t) 0)
          ((integerp res) res)
@@ -298,7 +298,7 @@
   (let* (
          (res (fuse-funcall *fuse-wrapper-truncate* split-path offset))
          )
-        (cond 
+        (cond
          ((eq res nil) (- error-EIO))
          ((eq res t) 0)
          ((integerp res) res)
@@ -307,10 +307,10 @@
 
 (fuse-path-callback file-flush :int ((file-info fuse-file-info))
   (let* (
-         (fh (foreign-slot-value file-info 'fuse-file-info :file-handle))
+         (fh (foreign-slot-value file-info '(:struct fuse-file-info) :file-handle))
          (res (fuse-funcall *fuse-wrapper-file-flush* split-path fh))
          )
-        (cond 
+        (cond
          ((eq res nil) (- error-EIO))
          ((eq res t) 0)
          ((integerp res) res)
@@ -319,10 +319,10 @@
 
 (fuse-path-callback file-release :int ((file-info fuse-file-info))
   (let* (
-         (fh (foreign-slot-value file-info 'fuse-file-info :file-handle))
+         (fh (foreign-slot-value file-info '(:struct fuse-file-info) :file-handle))
          (res (fuse-funcall *fuse-wrapper-file-release* split-path fh))
          )
-        (cond 
+        (cond
          ((eq res nil) (- error-EIO))
          ((eq res t) 0)
          ((integerp res) res)
@@ -332,7 +332,7 @@
 (fuse-path-callback mkdir :int ((mode mode))
   (let* (
          (res (fuse-funcall *fuse-wrapper-mkdir* split-path mode)))
-        (cond 
+        (cond
          ((eq res nil) (- error-EACCES))
          ((eq res t) 0)
          ((integerp res) res)
@@ -342,7 +342,7 @@
 (fuse-path-callback unlink :int ()
   (let* (
          (res (fuse-funcall *fuse-wrapper-unlink* split-path)))
-        (cond 
+        (cond
          ((eq res nil) (- error-EACCES))
          ((eq res t) 0)
          ((integerp res) res)
@@ -352,7 +352,7 @@
 (fuse-path-callback rmdir :int ()
   (let* (
          (res (fuse-funcall *fuse-wrapper-rmdir* split-path)))
-        (cond 
+        (cond
          ((eq res nil) (- error-EACCES))
          ((eq res t) 0)
          ((integerp res) res)
@@ -383,31 +383,31 @@
      (functionp *fuse-wrapper-unlink*)
      (not (not (fuse-funcall *fuse-wrapper-file-writeable-p* split-path)))
      (not (fuse-funcall *fuse-wrapper-directoryp* split-path))
-     (not (fuse-funcall *fuse-wrapper-directoryp* 
+     (not (fuse-funcall *fuse-wrapper-directoryp*
                         (cdr (cl-utilities:split-sequence #\/ target))))
      (not (fuse-funcall *fuse-wrapper-symlinkp* split-path))
-     (not (fuse-funcall *fuse-wrapper-symlinkp* 
+     (not (fuse-funcall *fuse-wrapper-symlinkp*
                         (cdr (cl-utilities:split-sequence #\/ target))))
      )
-    (let* 
+    (let*
      ((split-target (cdr (cl-utilities:split-sequence #\/ target)))
       (source-handle nil)
       (target-handle nil)
-      (res 
+      (res
        (fuse-and
-        (or 
+        (or
          (not (fuse-funcall *fuse-wrapper-file-size* split-target))
          (fuse-funcall *fuse-wrapper-unlink* split-target))
         (fuse-funcall *fuse-wrapper-file-create* split-target #o0644 0)
-        (setf source-handle (funcall *fuse-wrapper-file-open* 
+        (setf source-handle (funcall *fuse-wrapper-file-open*
                                      split-path (logior open-RDONLY)))
-        (setf target-handle (funcall *fuse-wrapper-file-open* 
+        (setf target-handle (funcall *fuse-wrapper-file-open*
                                      split-target (logior open-WRONLY)))
         (if *fuse-wrapper-file-write*
             (iterate
              (for chunk := 8192)
              (for n upfrom 0)
-             (for data := (fuse-funcall *fuse-wrapper-file-read* split-path 
+             (for data := (fuse-funcall *fuse-wrapper-file-read* split-path
                                         chunk (* n chunk) source-handle))
              (for write-buf := (make-array (length (third data))
                                 :element-type '(unsigned-byte 8)))
@@ -423,13 +423,13 @@
              )
             (let*
              (
-              (content (funcall *fuse-wrapper-file-read* split-path 
+              (content (funcall *fuse-wrapper-file-read* split-path
                                 *fuse-wrapper-max-write-whole-size* 0
                                 source-handle))
               (write-buf (make-array (length (third content))
                                      :element-type '(unsigned-byte 8)))
               )
-             (process-buffer content 
+             (process-buffer content
                              (lambda (i x) (setf (aref write-buf i) x))
                              *fuse-wrapper-max-write-whole-size* 0)
              (funcall *fuse-wrapper-file-write-whole*
@@ -437,13 +437,13 @@
                       write-buf
                       target-handle))
             )
-        (if *fuse-wrapper-file-flush* 
+        (if *fuse-wrapper-file-flush*
             (funcall *fuse-wrapper-file-flush* split-target target-handle)
             t)
         (progn
-         (funcall *fuse-wrapper-file-release* 
+         (funcall *fuse-wrapper-file-release*
                   split-path source-handle)
-         (funcall *fuse-wrapper-file-release* 
+         (funcall *fuse-wrapper-file-release*
                   split-target target-handle)
          t)
         (funcall *fuse-wrapper-unlink* split-path)
@@ -458,7 +458,7 @@
     (t (- error-EACCES))
     ))
 
-(fuse-callback 
+(fuse-callback
   symlink :int ((content :string) (path :string))
   (let*
     (
@@ -474,7 +474,7 @@
     )
   )
 
-(defun fuse-run (args &key 
+(defun fuse-run (args &key
   (directoryp 'fuse-wrapper-default-directoryp)
   (directory-content 'fuse-wrapper-default-directory-content)
   (symlink-target 'fuse-wrapper-default-symlink-target)
@@ -498,8 +498,8 @@
   (symlink 'fuse-wrapper-default-symlink)
   (rename nil)
   (define-fs-only nil)
-  (call-manager (lambda (f &rest x) 
-                        (declare (ignore x)) 
+  (call-manager (lambda (f &rest x)
+                        (declare (ignore x))
                         (funcall f)))
   )
   (setf
@@ -528,23 +528,23 @@
    )
   (if (not define-fs-only)
                      (fuse-main-lisp '(
-                                       (:getattr  fuse-wrapper-getattr     ) 
-                                       (:readdir  fuse-wrapper-readdir     ) 
-                                       (:readlink fuse-wrapper-readlink    ) 
-                                       (:open     fuse-wrapper-file-open   ) 
-                                       (:release  fuse-wrapper-file-release) 
-                                       (:read     fuse-wrapper-file-read   ) 
-                                       (:write    fuse-wrapper-file-write  ) 
-                                       (:mknod    fuse-wrapper-file-create ) 
-                                       (:chmod    fuse-wrapper-chmod       ) 
-                                       (:chown    fuse-wrapper-chown       ) 
-                                       (:truncate fuse-wrapper-truncate    ) 
-                                       (:flush    fuse-wrapper-file-flush  ) 
-                                       (:mkdir    fuse-wrapper-mkdir       ) 
-                                       (:unlink   fuse-wrapper-unlink      ) 
-                                       (:rmdir    fuse-wrapper-rmdir       ) 
-                                       (:rename   fuse-wrapper-rename      ) 
-                                       (:symlink  fuse-wrapper-symlink     ) 
+                                       (:getattr  fuse-wrapper-getattr     )
+                                       (:readdir  fuse-wrapper-readdir     )
+                                       (:readlink fuse-wrapper-readlink    )
+                                       (:open     fuse-wrapper-file-open   )
+                                       (:release  fuse-wrapper-file-release)
+                                       (:read     fuse-wrapper-file-read   )
+                                       (:write    fuse-wrapper-file-write  )
+                                       (:mknod    fuse-wrapper-file-create )
+                                       (:chmod    fuse-wrapper-chmod       )
+                                       (:chown    fuse-wrapper-chown       )
+                                       (:truncate fuse-wrapper-truncate    )
+                                       (:flush    fuse-wrapper-file-flush  )
+                                       (:mkdir    fuse-wrapper-mkdir       )
+                                       (:unlink   fuse-wrapper-unlink      )
+                                       (:rmdir    fuse-wrapper-rmdir       )
+                                       (:rename   fuse-wrapper-rename      )
+                                       (:symlink  fuse-wrapper-symlink     )
                                        )
-                                     args 
+                                     args
                                      call-manager)))

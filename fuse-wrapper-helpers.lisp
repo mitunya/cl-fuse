@@ -14,14 +14,14 @@
 
 (defmacro just-print-errors (&rest body)
   `(block nil
-          (handler-case (progn ,@body) 
-                 (error (x) 
-                    (progn (fuse-complain "Error occured: ~s~%" x)
+          (handler-case (progn ,@body)
+                 (error (x)
+                    (progn ;(fuse-complain "Error occured: ~s~%" x)
                            (setf *last-wrapper-error*
                                  (format nil
                                   "Error:~%~a~%~s~%Backtrace:~%~a~%"
                                   x x
-                                  (with-output-to-string 
+                                  (with-output-to-string
                                    (s)
                                    (trivial-backtrace:print-backtrace-to-stream s)
                                    )
@@ -32,22 +32,22 @@
 (defmacro fuse-callback (name type args &rest body)
   (let* (
          (the-package (find-package :cl-fuse))
-         (function-name (intern (string-upcase 
-                                 (concatenate 'string "fuse-wrapper-" 
+         (function-name (intern (string-upcase
+                                 (concatenate 'string "fuse-wrapper-"
                                               (symbol-name name) "-function"))
                                 the-package))
-         (callback-name (intern (string-upcase 
-                                 (concatenate 'string "fuse-wrapper-" 
+         (callback-name (intern (string-upcase
+                                 (concatenate 'string "fuse-wrapper-"
                                               (symbol-name name)))
                                 the-package))
          (arglist (mapcar 'car args))
          )
         `(progn
           (defun ,function-name ,arglist
-                 (when 
+                 (when
                   *trace-functions*
-                  (format *error-output* 
-                          "Entering ~s with args ~s~%" 
+                  (format *error-output*
+                          "Entering ~s with args ~s~%"
                           ',function-name (list ,@arglist))
                   )
                  (prog1
@@ -55,21 +55,21 @@
                       (progn ,@body)
                       (just-print-errors ,@body)
                       )
-                  (when 
+                  (when
                    *trace-functions*
-                   (format *error-output* 
-                           "Leaving ~s with args ~s~%" 
+                   (format *error-output*
+                           "Leaving ~s with args ~s~%"
                            ',function-name (list ,@arglist))
                    )
                   )
                  )
-          (defcallback ,callback-name ,type ,args 
+          (defcallback ,callback-name ,type ,args
                        (,function-name ,@arglist)))))
 
 (defun find-name (name body &optional (fallback t))
   (let (res)
        (or
-        (loop for x in body 
+        (loop for x in body
               when (and (symbolp x) (equal (symbol-name x) (string name))) return x
               when (and (listp x) (setf res (find-name name x nil))) return res
               )
@@ -81,14 +81,14 @@
          (path (find-name "PATH" body))
          (split-path (find-name "SPLIT-PATH" body))
          )
-  `(fuse-callback 
-    ,name ,type ((,path :string) ,@args)               
+  `(fuse-callback
+    ,name ,type ((,path :string) ,@args)
     (if (stringp ,path)
         (let*
-         ((,split-path 
-	    (if (equal ,path "/") nil 
+         ((,split-path
+	    (if (equal ,path "/") nil
 	      (cdr (cl-utilities:split-sequence #\/ ,path)))))
-	 ;(fuse-complain "FUSE path callback ~a called with path ~s split as ~s~%" ',name ,path ,split-path)
+         ;(fuse-complain "FUSE path callback ~a called with path ~s split as ~s~%" ',name ,path ,split-path)
          ,@body)
         (- error-ENOENT)))))
 

@@ -3,15 +3,16 @@
 ; Distributed AS IS with NO WARRANTY
 
 (in-package :cl-fuse)
+(include "sys/types.h")
+(include "sys/stat.h")
+(include "unistd.h")
+(include "errno.h")
+#+darwin (include "fcntl.h")
 (define "FUSE_USE_VERSION" "27")
 (define "_FILE_OFFSET_BITS" "64")
 (define "_XOPEN_SOURCE" "600")
 (include "fuse.h")
 (include "fuse/fuse_lowlevel.h")
-(include "sys/types.h")
-(include "sys/stat.h")
-(include "unistd.h")
-(include "errno.h")
 (c " struct fuse_session {}; struct fuse {}; ")
 (ctype pid "pid_t")
 (ctype gid "gid_t")
@@ -41,11 +42,11 @@
 
 (cstruct fuse-ops "struct fuse_operations"
 	; int (*getattr) (const char *, struct stat *);
-	(:getattr "getattr" :type :pointer)
-	; int (*readlink) (const char *, char *, size_t);
-	(:readlink "readlink" :type :pointer)
-	; This is called for creation of all non-directory, non-symlink nodes. 
-	; If the filesystem defines a create() method, then for regular files 
+        (:getattr "getattr" :type :pointer)
+        ; int (*readlink) (const char *, char *, size_t);
+        (:readlink "readlink" :type :pointer)
+        ; This is called for creation of all non-directory, non-symlink nodes.
+	; If the filesystem defines a create() method, then for regular files
 	; that will be called instead.
 	; int (*mknod) (const char *, mode_t, dev_t);
 	(:mknod "mknod" :type :pointer)
@@ -76,7 +77,7 @@
 	(:open "open" :type :pointer)
 	; Read should return exactly the number of bytes requested except
 	; on EOF or error, otherwise the rest of the data will be
-	; substituted with zeroes.	 
+	; substituted with zeroes.
 	; int (*read) (const char *, char *, size_t, off_t,
 	;	     struct fuse_file_info *);
 	(:read "read" :type :pointer)
@@ -128,8 +129,8 @@
 	; '1'.
 	; int (*readdir) (const char *, void *, fuse_fill_dir_t, off_t,
 	;		struct fuse_file_info *);
-	(:readdir "readdir" :type :pointer)
-	; int (*releasedir) (const char *, struct fuse_file_info *);
+        (:readdir "readdir" :type :pointer)
+        ; int (*releasedir) (const char *, struct fuse_file_info *);
 	(:releasedir "releasedir" :type :pointer)
 	; int (*fsyncdir) (const char *, int, struct fuse_file_info *);
 	(:fsyncdir "fsyncdir" :type :pointer)
@@ -174,22 +175,22 @@
   )
 
 (cstruct stat-data "struct stat"
-  (:on-dev            "st_dev"     :type dev     ) ; ID of device containing file 
-  (:inode             "st_ino"     :type ino     ) ; inode number 
-  (:mode              "st_mode"    :type mode    ) ; protection 
-  (:link-count        "st_nlink"   :type nlink   ) ; number of hard links 
-  (:uid               "st_uid"     :type uid     ) ; user ID of owner 
-  (:gid               "st_gid"     :type gid     ) ; group ID of owner 
-  (:device-id         "st_rdev"    :type dev     ) ; device ID (if special file) 
-  (:size              "st_size"    :type offset  ) ; total size, in bytes 
-  (:blocksize         "st_blksize" :type blksize ) ; blocksize for file system I/O 
-  (:blockcount        "st_blocks"  :type blkcnt  ) ; number of 512B blocks allocated 
-  (:access-time       "st_atime"   :type time-t  ) ; time of last access 
-  (:modification-time "st_mtime"   :type time-t  ) ; time of last modification 
-  (:change-time       "st_ctime"   :type time-t  ) ; time of last status change 
+  (:on-dev            "st_dev"     :type dev     ) ; ID of device containing file
+  (:inode             "st_ino"     :type ino     ) ; inode number
+  (:mode              "st_mode"    :type mode    ) ; protection
+  (:link-count        "st_nlink"   :type nlink   ) ; number of hard links
+  (:uid               "st_uid"     :type uid     ) ; user ID of owner
+  (:gid               "st_gid"     :type gid     ) ; group ID of owner
+  (:device-id         "st_rdev"    :type dev     ) ; device ID (if special file)
+  (:size              "st_size"    :type offset  ) ; total size, in bytes
+  (:blocksize         "st_blksize" :type blksize ) ; blocksize for file system I/O
+  (:blockcount        "st_blocks"  :type blkcnt  ) ; number of 512B blocks allocated
+  (:access-time       "st_atime"   :type time-t  ) ; time of last access
+  (:modification-time "st_mtime"   :type time-t  ) ; time of last modification
+  (:change-time       "st_ctime"   :type time-t  ) ; time of last status change
   )
 
-(cstruct fuse-args "struct fuse_args" 
+(cstruct fuse-args "struct fuse_args"
   (argc "argc" :type :int)
   (argv "argv" :type :pointer)
   (allocated "allocated" :type :int)
@@ -212,40 +213,40 @@
 (constant (mode-link        "S_IFLNK" ))
 (constant (mode-socket      "S_IFSOCK") :optional t)
 
-(constant (error-EPERM   "EPERM"))    ; Operation not permitted 
-(constant (error-ENOENT  "ENOENT"))   ; No such file or directory 
-(constant (error-ESRCH   "ESRCH"))    ; No such process 
-(constant (error-EINTR   "EINTR"))    ; Interrupted system call 
-(constant (error-EIO     "EIO"))      ; I/O error 
-(constant (error-ENXIO   "ENXIO"))    ; No such device or address 
-(constant (error-E2BIG   "E2BIG"))    ; Argument list too long 
-(constant (error-ENOEXEC "ENOEXEC"))  ; Exec format error 
-(constant (error-EBADF   "EBADF"))    ; Bad file number 
-(constant (error-ECHILD  "ECHILD"))   ; No child processes 
-(constant (error-EAGAIN  "EAGAIN"))   ; Try again 
-(constant (error-ENOMEM  "ENOMEM"))   ; Out of memory 
-(constant (error-EACCES  "EACCES"))   ; Permission denied 
-(constant (error-EFAULT  "EFAULT"))   ; Bad address 
-(constant (error-ENOTBLK "ENOTBLK"))  ; Block device required 
-(constant (error-EBUSY   "EBUSY"))    ; Device or resource busy 
-(constant (error-EEXIST  "EEXIST"))   ; File exists 
-(constant (error-EXDEV   "EXDEV"))    ; Cross-device link 
-(constant (error-ENODEV  "ENODEV"))   ; No such device 
-(constant (error-ENOTDIR "ENOTDIR"))  ; Not a directory 
-(constant (error-EISDIR  "EISDIR"))   ; Is a directory 
-(constant (error-EINVAL  "EINVAL"))   ; Invalid argument 
-(constant (error-ENFILE  "ENFILE"))   ; File table overflow 
-(constant (error-EMFILE  "EMFILE"))   ; Too many open files 
-(constant (error-ENOTTY  "ENOTTY"))   ; Not a typewriter 
-(constant (error-ETXTBSY "ETXTBSY"))  ; Text file busy 
-(constant (error-EFBIG   "EFBIG"))    ; File too large 
-(constant (error-ENOSPC  "ENOSPC"))   ; No space left on device 
-(constant (error-ESPIPE  "ESPIPE"))   ; Illegal seek 
-(constant (error-EROFS   "EROFS"))    ; Read-only file system 
-(constant (error-EMLINK  "EMLINK"))   ; Too many links 
-(constant (error-EPIPE   "EPIPE"))    ; Broken pipe 
-(constant (error-EDOM    "EDOM"))     ; Math argument out of domain of func 
-(constant (error-ERANGE  "ERANGE"))   ; Math result not representable 
+(constant (error-EPERM   "EPERM"))    ; Operation not permitted
+(constant (error-ENOENT  "ENOENT"))   ; No such file or directory
+(constant (error-ESRCH   "ESRCH"))    ; No such process
+(constant (error-EINTR   "EINTR"))    ; Interrupted system call
+(constant (error-EIO     "EIO"))      ; I/O error
+(constant (error-ENXIO   "ENXIO"))    ; No such device or address
+(constant (error-E2BIG   "E2BIG"))    ; Argument list too long
+(constant (error-ENOEXEC "ENOEXEC"))  ; Exec format error
+(constant (error-EBADF   "EBADF"))    ; Bad file number
+(constant (error-ECHILD  "ECHILD"))   ; No child processes
+(constant (error-EAGAIN  "EAGAIN"))   ; Try again
+(constant (error-ENOMEM  "ENOMEM"))   ; Out of memory
+(constant (error-EACCES  "EACCES"))   ; Permission denied
+(constant (error-EFAULT  "EFAULT"))   ; Bad address
+(constant (error-ENOTBLK "ENOTBLK"))  ; Block device required
+(constant (error-EBUSY   "EBUSY"))    ; Device or resource busy
+(constant (error-EEXIST  "EEXIST"))   ; File exists
+(constant (error-EXDEV   "EXDEV"))    ; Cross-device link
+(constant (error-ENODEV  "ENODEV"))   ; No such device
+(constant (error-ENOTDIR "ENOTDIR"))  ; Not a directory
+(constant (error-EISDIR  "EISDIR"))   ; Is a directory
+(constant (error-EINVAL  "EINVAL"))   ; Invalid argument
+(constant (error-ENFILE  "ENFILE"))   ; File table overflow
+(constant (error-EMFILE  "EMFILE"))   ; Too many open files
+(constant (error-ENOTTY  "ENOTTY"))   ; Not a typewriter
+(constant (error-ETXTBSY "ETXTBSY"))  ; Text file busy
+(constant (error-EFBIG   "EFBIG"))    ; File too large
+(constant (error-ENOSPC  "ENOSPC"))   ; No space left on device
+(constant (error-ESPIPE  "ESPIPE"))   ; Illegal seek
+(constant (error-EROFS   "EROFS"))    ; Read-only file system
+(constant (error-EMLINK  "EMLINK"))   ; Too many links
+(constant (error-EPIPE   "EPIPE"))    ; Broken pipe
+(constant (error-EDOM    "EDOM"))     ; Math argument out of domain of func
+(constant (error-ERANGE  "ERANGE"))   ; Math result not representable
 
 (constant (open-ACCMODE  "O_ACCMODE"))
 (constant (open-RDONLY   "O_RDONLY"))
